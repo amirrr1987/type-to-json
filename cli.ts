@@ -12,8 +12,8 @@ const program = new Command()
 const packageVersion = readPackageVersion()
 
 program
-  .name('ts-export-to-json')
-  .description('Generate JSON field maps from exported TypeScript type aliases')
+  .name('vite-plugin-ts-types-to-json')
+  .description('Generate JSON field maps from exported TypeScript types and interfaces')
   .version(packageVersion)
   .argument('<input>', 'TypeScript input file to parse')
   .option('-o, --output <file>', 'Output JSON file path', 'output.json')
@@ -29,7 +29,7 @@ program
   .option('-v, --verbose', 'Show detailed output', false)
   .action((inputArg: string, options) => {
     console.log()
-    console.log(chalk.bold.cyan('  ts-export-to-json') + chalk.gray(` v${packageVersion}`))
+    console.log(chalk.bold.cyan('  vite-plugin-ts-types-to-json') + chalk.gray(` v${packageVersion}`))
     console.log(chalk.gray('  ─────────────────────────────────'))
     console.log()
 

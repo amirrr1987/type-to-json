@@ -1,7 +1,7 @@
 {
-  "name": "ts-export-to-json",
+  "name": "vite-plugin-ts-types-to-json",
   "version": "1.0.0",
-  "description": "Vite plugin and CLI to generate JSON field maps from exported TypeScript type aliases",
+  "description": "Vite plugin and CLI to generate JSON field maps from exported TypeScript types and interfaces",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -15,7 +15,7 @@
     }
   },
   "bin": {
-    "ts-export-to-json": "./dist/cli.js"
+    "vite-plugin-ts-types-to-json": "./dist/cli.js"
   },
   "files": [
     "dist",
@@ -47,12 +47,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/amirrr1987/ts-export-to-json.git"
+    "url": "git+https://github.com/amirrr1987/vite-plugin-ts-types-to-json.git"
   },
   "bugs": {
-    "url": "https://github.com/amirrr1987/ts-export-to-json/issues"
+    "url": "https://github.com/amirrr1987/vite-plugin-ts-types-to-json/issues"
   },
-  "homepage": "https://github.com/amirrr1987/ts-export-to-json#readme",
+  "homepage": "https://github.com/amirrr1987/vite-plugin-ts-types-to-json#readme",
   "engines": {
     "node": ">=18"
   },

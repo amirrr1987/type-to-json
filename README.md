@@ -1,11 +1,11 @@
-# ts-export-to-json
+# vite-plugin-ts-types-to-json
 
-Vite plugin and CLI that reads TypeScript interface files, follows imported DTO types, and generates JSON maps for **exported type aliases** from the input file.
+Vite plugin and CLI that reads TypeScript source files, follows imported DTO types, and generates JSON maps for **exported type aliases and interfaces** from the input file.
 
 ## Install
 
 ```bash
-npm install -D ts-export-to-json
+npm install -D vite-plugin-ts-types-to-json
 ```
 
 ## Vite plugin (recommended)
@@ -13,11 +13,11 @@ npm install -D ts-export-to-json
 ```typescript
 // vite.config.ts
 import { defineConfig } from 'vite'
-import { tsExportToJson } from 'ts-export-to-json'
+import { tsTypesToJson } from 'vite-plugin-ts-types-to-json'
 
 export default defineConfig({
   plugins: [
-    tsExportToJson({
+    tsTypesToJson({
       entries: [
         {
           input: 'src/interfaces/auth.interface.ts',
@@ -50,12 +50,12 @@ export default defineConfig({
 The plugin:
 - runs on `dev` and `build`
 - uses Vite `resolve.alias` automatically (`@/` supported)
-- watches interface files and optional dependency files
+- watches source files and optional dependency files
 
 ## CLI
 
 ```bash
-npx ts-export-to-json src/interfaces/auth.interface.ts \
+npx vite-plugin-ts-types-to-json src/interfaces/auth.interface.ts \
   -o src/locales/interfaces/auth.fa.json \
   --alias @/=./src
 ```
@@ -87,7 +87,7 @@ Output:
 
 ## Behavior
 
-- Only **exported** aliases/interfaces from the **input file**
+- Only **exported** type aliases and interfaces from the **input file**
 - Imported files are parsed only to resolve field shapes
 - Supports `type Foo = IBar` and `type Foo = IBar['data']`
 - Primitive `data` fields (e.g. `boolean`) are skipped

@@ -1,5 +1,5 @@
 export { exportInterfaceToJson, exportInterfaceEntries } from './core.js'
 export type { ExportInterfaceOptions } from './core.js'
 
-export { tsExportToJson } from './plugin.js'
-export type { ExportEntry, TsExportToJsonPluginOptions } from './plugin.js'
+export { tsTypesToJson } from './plugin.js'
+export type { ExportEntry, TsTypesToJsonPluginOptions } from './plugin.js'

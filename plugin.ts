@@ -8,8 +8,8 @@ export interface ExportEntry {
   output: string
 }
 
-export interface TsExportToJsonPluginOptions {
-  /** Interface source files and their JSON output paths (relative to Vite root) */
+export interface TsTypesToJsonPluginOptions {
+  /** TypeScript source files and their JSON output paths (relative to Vite root) */
   entries: ExportEntry[]
   /** Extra path aliases merged on top of Vite resolve.alias */
   aliases?: AliasMap
@@ -51,7 +51,7 @@ function samePath(a: string, b: string): boolean {
   return resolve(a) === resolve(b)
 }
 
-export function tsExportToJson(options: TsExportToJsonPluginOptions): Plugin {
+export function tsTypesToJson(options: TsTypesToJsonPluginOptions): Plugin {
   let root = process.cwd()
   let viteAliases: AliasMap = {}
 
@@ -66,12 +66,12 @@ export function tsExportToJson(options: TsExportToJsonPluginOptions): Plugin {
     })
 
     if (options.verbose) {
-      console.log(`[ts-export-to-json] ${label}: ${options.entries.length} file(s) updated`)
+      console.log(`[vite-plugin-ts-types-to-json] ${label}: ${options.entries.length} file(s) updated`)
     }
   }
 
   return {
-    name: 'vite-plugin-ts-export-to-json',
+    name: 'vite-plugin-ts-types-to-json',
     enforce: 'pre',
 
     configResolved(config) {
