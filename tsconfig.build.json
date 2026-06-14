@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "declaration": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": true,
+    "outDir": "./dist",
+    "rootDir": "."
+  },
+  "include": ["index.ts", "plugin.ts", "core.ts", "types.ts"],
+  "exclude": ["node_modules", "dist", "cli.ts", "parser.ts", "generator.ts", "resolver.ts", "utils.ts"]
+}

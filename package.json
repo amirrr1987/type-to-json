@@ -1,0 +1,81 @@
+{
+  "name": "ts-export-to-json",
+  "version": "1.0.0",
+  "description": "Vite plugin and CLI to generate JSON field maps from exported TypeScript type aliases",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./cli": {
+      "import": "./dist/cli.js"
+    }
+  },
+  "bin": {
+    "ts-export-to-json": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "vite build && npm run build:types",
+    "build:types": "tsc -p tsconfig.build.json",
+    "dev": "tsx cli.ts",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run build",
+    "prepack": "npm run build"
+  },
+  "keywords": [
+    "typescript",
+    "type-alias",
+    "interface",
+    "dto",
+    "json",
+    "cli",
+    "vite",
+    "vite-plugin",
+    "codegen",
+    "i18n",
+    "labels"
+  ],
+  "author": "amirrr1987",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/amirrr1987/ts-export-to-json.git"
+  },
+  "bugs": {
+    "url": "https://github.com/amirrr1987/ts-export-to-json/issues"
+  },
+  "homepage": "https://github.com/amirrr1987/ts-export-to-json#readme",
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "vite": "^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^11.1.0",
+    "ora": "^7.0.1",
+    "typescript": "^5.3.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "vite": "^5.0.12"
+  }
+}
