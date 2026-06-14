@@ -21,4 +21,4 @@ jobs:
       - run: npm run build
       - run: npm publish --access public
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.VITE_PLUGIN_TS_TYPES_TO_JSON }}
+          NODE_AUTH_TOKEN: ${{ secrets.TYPE_TO_JSON }}
