@@ -2,8 +2,8 @@ name: Publish
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - "v*"
 
 jobs:
   publish:
@@ -16,8 +16,8 @@ jobs:
           node-version: "20"
           registry-url: https://registry.npmjs.org/
 
-      - run: npm install
+      - run: npm install --ignore-scripts
       - run: npm run build
-      - run: npm publish -w vite-plugin-ts-types-to-json --access public
+      - run: npm publish --access public
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.VITE_PLUGIN_TS_TYPES_TO_JSON }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
