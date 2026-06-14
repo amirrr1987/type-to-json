@@ -1,0 +1,36 @@
+{
+  "IAdmin": {
+    "id": "id",
+    "fullName": "fullName",
+    "permissionList": "permissionList",
+    "adminLevel": "adminLevel"
+  },
+  "IAdminResponse": {
+    "data": {
+      "id": "id",
+      "fullName": "fullName",
+      "permissionList": "permissionList",
+      "adminLevel": "adminLevel"
+    },
+    "message": "message",
+    "statusCode": "statusCode"
+  },
+  "IUser": {
+    "id": "id",
+    "fullName": "fullName",
+    "permissionList": "permissionList"
+  },
+  "IPermissions": {
+    "permissionList": "permissionList"
+  },
+  "IApiResponse": {
+    "data": "data",
+    "message": "message",
+    "statusCode": "statusCode"
+  },
+  "UserService": {
+    "id": "id",
+    "fullName": "fullName",
+    "permissionList": "permissionList"
+  }
+}

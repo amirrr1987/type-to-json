@@ -1,0 +1,24 @@
+{
+  "IAdmin": {
+    "id": "id",
+    "fullName": "fullName",
+    "permissionList": "permissionList",
+    "adminLevel": "adminLevel"
+  },
+  "IUser": {
+    "id": "id",
+    "fullName": "fullName"
+  },
+  "IPermissions": {
+    "permissionList": "permissionList"
+  },
+  "IApiResponse": {
+    "data": "data",
+    "message": "message",
+    "statusCode": "statusCode"
+  },
+  "IUserWithRole": {
+    "role": "role",
+    "id": "id"
+  }
+}

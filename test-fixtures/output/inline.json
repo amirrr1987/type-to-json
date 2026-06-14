@@ -1,0 +1,9 @@
+{
+  "IInlineReq": {
+    "username": "username",
+    "password": "password"
+  },
+  "IInlineIface": {
+    "email": "email"
+  }
+}

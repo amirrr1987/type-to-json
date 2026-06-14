@@ -1,0 +1,25 @@
+{
+  "IBase": {
+    "id": "id"
+  },
+  "IAudit": {
+    "createdAt": "createdAt"
+  },
+  "ISoftDelete": {
+    "deletedAt": "deletedAt"
+  },
+  "IUser": {
+    "fullName": "fullName",
+    "id": "id",
+    "createdAt": "createdAt",
+    "deletedAt": "deletedAt"
+  },
+  "IOptionalUser": {
+    "id": "id",
+    "nickname": "nickname"
+  },
+  "IReadonlyUser": {
+    "id": "id",
+    "fullName": "fullName"
+  }
+}

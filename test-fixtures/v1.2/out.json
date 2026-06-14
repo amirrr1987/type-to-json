@@ -1,0 +1,31 @@
+{
+  "IUserForm": {
+    "fullName": "fullName",
+    "email": "email"
+  },
+  "IUserPreview": {
+    "id": "id",
+    "fullName": "fullName"
+  },
+  "IUserUpdate": {
+    "id": "id",
+    "fullName": "fullName",
+    "email": "email",
+    "createdAt": "createdAt"
+  },
+  "IUser": {
+    "id": "id",
+    "fullName": "fullName",
+    "email": "email",
+    "createdAt": "createdAt"
+  },
+  "IProduct": {
+    "id": "id",
+    "title": "title",
+    "price": "price"
+  },
+  "IResponse": {
+    "status": "status",
+    "data": "data"
+  }
+}

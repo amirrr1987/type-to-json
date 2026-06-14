@@ -3,36 +3,6 @@ import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
 
 /**
- * Clean interface name by removing common prefixes/suffixes:
- * - Remove leading 'I' prefix (ILoginRequestDTO -> LoginRequestDTO)
- * - Remove trailing 'DTO' suffix (LoginRequestDTO -> LoginRequest)
- * - Replace 'Req' -> 'Request', 'Res' -> 'Response'
- */
-export function cleanInterfaceName(name: string): string {
-  let cleaned = name
-
-  // Remove 'I' prefix if followed by uppercase letter
-  if (/^I[A-Z]/.test(cleaned)) {
-    cleaned = cleaned.slice(1)
-  }
-
-  // Remove 'DTO' suffix
-  if (cleaned.endsWith('DTO')) {
-    cleaned = cleaned.slice(0, -3)
-  }
-
-  // Replace Req -> Request (only when at end or followed by uppercase)
-  cleaned = cleaned.replace(/Req$/, 'Request')
-  cleaned = cleaned.replace(/Req(?=[A-Z])/, 'Request')
-
-  // Replace Res -> Response (only when at end or followed by uppercase)
-  cleaned = cleaned.replace(/Res$/, 'Response')
-  cleaned = cleaned.replace(/Res(?=[A-Z])/, 'Response')
-
-  return cleaned
-}
-
-/**
  * Parse --alias flag values like "@/=./src" into AliasMap entries
  */
 export function parseAliasArg(aliasArg: string): { key: string; value: string } | null {

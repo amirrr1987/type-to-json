@@ -1,0 +1,10 @@
+{
+  "IUser": {
+    "id": "id",
+    "fullName": "fullName"
+  },
+  "IProduct": {
+    "id": "id",
+    "title": "title"
+  }
+}

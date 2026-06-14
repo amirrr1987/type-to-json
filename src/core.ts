@@ -9,8 +9,8 @@ export interface ExportInterfaceOptions {
   basePath?: string
   aliases?: AliasMap
   resolvePaths?: string[]
-  cleanNames?: boolean
-  includeAllInterfaces?: boolean
+  /** Only export types from this namespace in the input file */
+  namespace?: string
 }
 
 export function exportInterfaceToJson(
@@ -28,11 +28,8 @@ export function exportInterfaceToJson(
     basePath,
   )
 
-  const ctx = parseFile(inputFile, config)
-  const mapping = generateMapping(ctx, {
-    cleanNames: options.cleanNames ?? false,
-    includeAllInterfaces: options.includeAllInterfaces ?? false,
-  })
+  const ctx = parseFile(inputFile, config, { namespace: options.namespace })
+  const mapping = generateMapping(ctx)
 
   mkdirSync(dirname(outputFile), { recursive: true })
   writeFileSync(outputFile, `${JSON.stringify(mapping, null, 2)}\n`, 'utf-8')
@@ -41,10 +38,13 @@ export function exportInterfaceToJson(
 }
 
 export function exportInterfaceEntries(
-  entries: Array<{ input: string; output: string }>,
+  entries: Array<{ input: string; output: string; namespace?: string }>,
   options: ExportInterfaceOptions = {},
 ): void {
   for (const entry of entries) {
-    exportInterfaceToJson(entry.input, entry.output, options)
+    exportInterfaceToJson(entry.input, entry.output, {
+      ...options,
+      namespace: entry.namespace ?? options.namespace,
+    })
   }
 }
