@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'fs'
 import type { OutputMapping, PropertyMapping } from './types.js'
 
-function isNestedMapping(value: PropertyMapping): value is Record<string, PropertyMapping> {
+function isNestedMapping(value: PropertyMapping | undefined): value is Record<string, PropertyMapping> {
   return typeof value === 'object' && value !== null
 }
 
@@ -48,7 +48,7 @@ function mergePropertyMapping(
   const merged: Record<string, PropertyMapping> = {}
   const existingObj = isNestedMapping(existing) ? existing : undefined
 
-  for (const [childKey, childValue] of Object.entries(generated)) {
+  for (const [childKey, childValue] of Object.entries(generated) as [string, PropertyMapping][]) {
     merged[childKey] = mergePropertyMapping(childValue, existingObj?.[childKey], childKey)
   }
 
@@ -70,7 +70,7 @@ export function mergeOutputWithExisting(
     const merged: Record<string, PropertyMapping> = {}
     const generatedProps = result[exportName]
 
-    for (const [key, value] of Object.entries(generatedProps)) {
+    for (const [key, value] of Object.entries(generatedProps) as [string, PropertyMapping][]) {
       merged[key] = mergePropertyMapping(value, existingProps[key], key)
     }
 
