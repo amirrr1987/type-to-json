@@ -1,13 +1,10 @@
+import type { LoginRequestDTO, LoginResponseResultDTO } from '../data-contracts'
 
-/** Request body for POST /auth/login */
-export type IAuthLoginReq = {
-  username: string
-  password: string
-}
+export type IAuthLoginReq = LoginRequestDTO
+export type IAuthLoginRes = LoginResponseResultDTO['data']
 
-/** Unwrapped `data` field from the login response */
-export type IAuthLoginRes = {
-  access_token: string
-  expires_in: number
-  refresh_token?: string
+export interface IAuthProfile {
+  id: string
+  fullName: string
+  email: string
 }

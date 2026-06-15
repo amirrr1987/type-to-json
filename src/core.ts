@@ -3,7 +3,10 @@ import { dirname, resolve } from 'path'
 import { parseFile } from './parser.js'
 import { generateMapping } from './generator.js'
 import { buildResolverConfig } from './resolver.js'
-import type { AliasMap, OutputMapping } from './types.js'
+import { applyOutputTransforms } from './output.js'
+import { loadTsConfigAliases, mergeAliasMaps } from './tsconfig-loader.js'
+import type { AliasMap, MappingOptions, OutputMapping } from './types.js'
+import type { ExportEntry, TypeToJsonConfig } from './config.js'
 
 export interface ExportInterfaceOptions {
   basePath?: string
@@ -11,6 +14,35 @@ export interface ExportInterfaceOptions {
   resolvePaths?: string[]
   /** Only export types from this namespace in the input file */
   namespace?: string
+  extendsTsConfig?: string
+  flatten?: boolean
+  mergeExisting?: boolean
+  includePrimitives?: boolean
+  expandArrays?: boolean
+  primitiveKey?: string
+}
+
+function resolveMappingOptions(
+  entry: Partial<ExportEntry>,
+  global: ExportInterfaceOptions,
+): MappingOptions {
+  return {
+    includePrimitives: entry.includePrimitives ?? global.includePrimitives,
+    expandArrays: entry.expandArrays ?? global.expandArrays,
+    primitiveKey: global.primitiveKey,
+  }
+}
+
+function resolveOutputOptions(
+  entry: Partial<ExportEntry>,
+  global: ExportInterfaceOptions,
+  outputPath: string,
+) {
+  return {
+    flatten: entry.flatten ?? global.flatten,
+    mergeExisting: entry.mergeExisting ?? global.mergeExisting,
+    outputPath,
+  }
 }
 
 export function exportInterfaceToJson(
@@ -21,15 +53,25 @@ export function exportInterfaceToJson(
   const basePath = options.basePath ?? process.cwd()
   const inputFile = resolve(basePath, input)
   const outputFile = resolve(basePath, output)
+  const tsconfigAliases = loadTsConfigAliases(basePath, options.extendsTsConfig)
+  const mergedAliases = mergeAliasMaps(tsconfigAliases, options.aliases ?? {})
+
   const config = buildResolverConfig(
     inputFile,
-    options.aliases ?? {},
+    mergedAliases,
     options.resolvePaths ?? [],
     basePath,
+    options.extendsTsConfig,
   )
 
-  const ctx = parseFile(inputFile, config, { namespace: options.namespace })
-  const mapping = generateMapping(ctx)
+  const mappingOptions = resolveMappingOptions({}, options)
+
+  const ctx = parseFile(inputFile, config, {
+    namespace: options.namespace,
+    mapping: mappingOptions,
+  })
+  const raw = generateMapping(ctx)
+  const mapping = applyOutputTransforms(raw, resolveOutputOptions({}, options, outputFile))
 
   mkdirSync(dirname(outputFile), { recursive: true })
   writeFileSync(outputFile, `${JSON.stringify(mapping, null, 2)}\n`, 'utf-8')
@@ -38,13 +80,50 @@ export function exportInterfaceToJson(
 }
 
 export function exportInterfaceEntries(
-  entries: Array<{ input: string; output: string; namespace?: string }>,
+  entries: ExportEntry[],
   options: ExportInterfaceOptions = {},
 ): void {
+  const basePath = options.basePath ?? process.cwd()
+  const tsconfigAliases = loadTsConfigAliases(basePath, options.extendsTsConfig)
+  const mergedAliases = mergeAliasMaps(tsconfigAliases, options.aliases ?? {})
+
   for (const entry of entries) {
-    exportInterfaceToJson(entry.input, entry.output, {
-      ...options,
+    const inputFile = resolve(basePath, entry.input)
+    const outputFile = resolve(basePath, entry.output)
+
+    const config = buildResolverConfig(
+      inputFile,
+      mergedAliases,
+      options.resolvePaths ?? [],
+      basePath,
+      options.extendsTsConfig,
+    )
+
+    const ctx = parseFile(inputFile, config, {
       namespace: entry.namespace ?? options.namespace,
+      mapping: resolveMappingOptions(entry, options),
     })
+
+    const raw = generateMapping(ctx)
+    const mapping = applyOutputTransforms(
+      raw,
+      resolveOutputOptions(entry, options, outputFile),
+    )
+
+    mkdirSync(dirname(outputFile), { recursive: true })
+    writeFileSync(outputFile, `${JSON.stringify(mapping, null, 2)}\n`, 'utf-8')
+  }
+}
+
+export function resolveConfigOptions(config: TypeToJsonConfig): ExportInterfaceOptions {
+  return {
+    aliases: config.aliases,
+    resolvePaths: config.resolvePaths,
+    extendsTsConfig: config.extendsTsConfig,
+    flatten: config.flatten,
+    mergeExisting: config.mergeExisting,
+    includePrimitives: config.includePrimitives,
+    expandArrays: config.expandArrays,
+    primitiveKey: config.primitiveKey,
   }
 }

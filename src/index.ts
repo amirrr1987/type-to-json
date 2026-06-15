@@ -1,5 +1,6 @@
-export { exportInterfaceToJson, exportInterfaceEntries } from './core.js'
+export { exportInterfaceToJson, exportInterfaceEntries, resolveConfigOptions } from './core.js'
 export type { ExportInterfaceOptions } from './core.js'
+export { flattenOutput, mergeOutputWithExisting } from './output.js'
 
 export {
   defineConfig,

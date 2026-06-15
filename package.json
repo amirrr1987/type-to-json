@@ -1,7 +1,7 @@
 {
   "name": "type-to-json",
-  "version": "2.0.1",
-  "description": "CLI to generate JSON field maps from exported TypeScript types and interfaces",
+  "version": "2.1.0",
+  "description": "Generate i18n label maps from exported TypeScript interfaces and types",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -22,6 +22,7 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc -p tsconfig.build.json --noEmit",
+    "test": "npm run build && node scripts/test-package.mjs",
     "postinstall": "node scripts/postinstall.mjs",
     "prepare": "npm run build",
     "prepublishOnly": "npm run build",

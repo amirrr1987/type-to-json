@@ -1,8 +1,8 @@
 # type-to-json
 
-CLI that reads TypeScript source files, follows imported DTO types, and generates JSON field maps for **exported type aliases and interfaces** from the input file.
+Turn exported TypeScript interfaces and types into **i18n label keys**.
 
-Typical use case: turn API request/response types into label keys for i18n (e.g. form field names, table columns).
+Reads your source files, follows imported DTO types, and generates JSON label maps for **exported type aliases, interfaces, and classes** — ready for locale files (form field names, table columns, API response labels).
 
 ## Install
 
@@ -21,6 +21,7 @@ This repo includes a working sample under [`examples/`](examples/):
 
 ```
 examples/
+├── data-contracts.ts          # Swagger-generated DTOs (optional `data?` wrapper)
 ├── interfaces/
 │   └── auth.interface.ts      # Your public types — only exports from here go to JSON
 └── expected/
@@ -30,10 +31,10 @@ examples/
 ### Input — `examples/interfaces/auth.interface.ts`
 
 ```typescript
-import type { LoginRequestDTO, LoginResponseResultDTO } from '@/api/data-contracts'
+import type { LoginRequestDTO, LoginResponseResultDTO } from '../data-contracts'
 
 export type IAuthLoginReq = LoginRequestDTO
-export type IAuthLoginRes = LoginResponseResultDTO['data']
+export type IAuthLoginRes = LoginResponseResultDTO['data']  // unwraps optional data?: T
 
 export interface IAuthProfile {
   id: string
@@ -42,7 +43,9 @@ export interface IAuthProfile {
 }
 ```
 
-The tool follows `@/api/data-contracts` to resolve fields, but only **exports from the input file** appear in the output.
+The tool follows imports to resolve fields, but only **exports from the input file** appear in the output.
+
+**v2.0.2+:** Indexed access on optional swagger wrappers (`data?: T`) is unwrapped correctly — `ResultDTO['data']` resolves to `T`, not an empty map.
 
 ### Output — `auth.labels.json`
 
@@ -56,6 +59,11 @@ The tool follows `@/api/data-contracts` to resolve fields, but only **exports fr
     "access_token": "access_token",
     "expires_in": "expires_in",
     "refresh_token": "refresh_token"
+  },
+  "IAuthProfile": {
+    "id": "id",
+    "fullName": "fullName",
+    "email": "email"
   }
 }
 ```
@@ -79,6 +87,12 @@ When a property resolves to an object type (e.g. `IApiResponse<IAdmin>`), v2.0 e
 ```
 
 Unions, arrays, primitives, and unresolved generics stay flat (`"data": "data"`).
+
+**Primitive indexed access** (`IBooleanResultDTO['data']` → `boolean | undefined`) has no object properties. By default the export is **skipped with a warning**. Set `includePrimitives: true` to emit `{ "_value": "_value" }`.
+
+**Skipped exports:** When an exported type resolves to an empty property map, the CLI logs a warning with the resolved type string.
+
+**Regenerating locales:** Set `mergeExisting: true` to keep translated values (any value that differs from its key) when re-running after API changes.
 
 ## Configuration
 
@@ -109,6 +123,16 @@ export default defineConfig({
 | --- | --- |
 | `entries` | `{ input, output, namespace? }[]` — TypeScript sources and JSON output paths |
 | `entries[].namespace` | Only export types from this `namespace Foo { ... }` block |
+| `entries[].flatten` | Dot-path keys (`data.id`) instead of nested objects |
+| `entries[].mergeExisting` | Keep translated values already in the output file |
+| `entries[].includePrimitives` | Placeholder key for boolean/string/number-only exports |
+| `entries[].expandArrays` | Expand `ItemDTO[]` into item field keys |
+| `flatten` | Global default for `entries[].flatten` |
+| `mergeExisting` | Global default — preserve existing locale translations on regenerate |
+| `includePrimitives` | Global default for primitive-only exports |
+| `expandArrays` | Global default for array element expansion |
+| `primitiveKey` | Key for primitive-only types (default: `_value`) |
+| `extendsTsConfig` | Reuse `paths` from a tsconfig (e.g. `./tsconfig.app.json`) |
 | `aliases` | Path aliases for resolving imports |
 | `resolvePaths` | Extra search paths for imports |
 
@@ -150,7 +174,9 @@ npx type-to-json src/interfaces/auth.interface.ts \
 | v1.2 | ✅ | `Pick` / `Omit` / `Partial`, re-exports |
 | v1.3 | ✅ | Generics (opaque), intersections, enums |
 | v2.0 | ✅ | Nested object expansion, namespace, class `implements` |
-| v2.1 | Planned | `flatten` output mode (dot-path keys like `data.id` instead of nested objects) |
+| v2.0.2 | ✅ | Optional indexed access (`data?: T`), skip warnings, quoted property names |
+| v2.1 | ✅ | `flatten`, `mergeExisting`, `includePrimitives`, `expandArrays`, `extendsTsConfig`, ESM `.js` imports |
+| v2.2 | Planned | Enum labels, `exclude`/`include` fields, vue-i18n bundle export |
 
 ## Project structure
 
@@ -178,10 +204,15 @@ type-to-json/
 
 ```bash
 npm install
+npm test
+```
+
+Or manually:
+
+```bash
 npm run build
 npx tsx src/cli.ts examples/interfaces/auth.interface.ts \
-  -o examples/output/auth.labels.json \
-  --alias @/=./examples
+  -o examples/output/auth.labels.json
 ```
 
 ## License

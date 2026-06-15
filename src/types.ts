@@ -12,6 +12,16 @@ export interface ResolverConfig {
   basePath: string
   resolvePaths: string[]
   aliases: AliasMap
+  extendsTsConfig?: string
+}
+
+export interface MappingOptions {
+  /** Emit a placeholder key for primitive root types (e.g. boolean ResultDTO['data']) */
+  includePrimitives?: boolean
+  /** Key used for primitive-only types (default: "_value") */
+  primitiveKey?: string
+  /** Expand array element types when they are object-like */
+  expandArrays?: boolean
 }
 
 export interface InterfaceProperty {
@@ -67,10 +77,12 @@ export interface ParserContext {
   classes: Map<string, ClassDefinition>
   config: ResolverConfig
   namespace?: string
+  mapping?: MappingOptions
   program: import('typescript').Program | null
   checker: import('typescript').TypeChecker | null
 }
 
 export interface ParseFileOptions {
   namespace?: string
+  mapping?: MappingOptions
 }

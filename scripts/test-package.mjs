@@ -59,7 +59,7 @@ assert('api: loadConfig exported', typeof api.loadConfig === 'function')
 assert('api: CONFIG_FILENAME = type-to-json.config.ts', api.CONFIG_FILENAME === 'type-to-json.config.ts')
 assert('api: NPM_SCRIPT_NAME = type-json', api.NPM_SCRIPT_NAME === 'type-json')
 
-// ── 3. Example fixture (inline types — known limitation) ────────────
+// ── 3. Example fixture (swagger indexed-access pattern) ─────────────
 const exampleOut = join(root, 'examples', 'output', 'test-auth.labels.json')
 mkdirSync(dirname(exampleOut), { recursive: true })
 const exampleResult = api.exportInterfaceToJson(
@@ -69,14 +69,8 @@ const exampleResult = api.exportInterfaceToJson(
 )
 const expected = JSON.parse(readFileSync(join(root, 'examples', 'expected', 'auth.labels.json'), 'utf-8'))
 
-if (Object.keys(exampleResult).length === 0) {
-  warn(
-    'example: inline object type aliases produce empty output',
-    'examples/interfaces/auth.interface.ts uses `export type X = { ... }` which parser does not support yet',
-  )
-} else {
-  assert('example: output matches expected', deepEqual(exampleResult, expected))
-}
+assert('example: output matches expected', deepEqual(exampleResult, expected))
+assert('example: IAuthLoginRes unwrapped from optional data', !!exampleResult.IAuthLoginRes?.access_token)
 
 // ── 4. Import-based DTO pattern ─────────────────────────────────────
 const importOut = join(root, 'test-fixtures', 'output', 'import-based.json')
@@ -103,22 +97,73 @@ const indexedResult = api.exportInterfaceToJson(
 assert('indexed-access: IUnwrapped has token', indexedResult.IUnwrapped?.token === 'token')
 assert('indexed-access: IUnwrapped has userId', indexedResult.IUnwrapped?.userId === 'userId')
 
-// ── 6. Inline interface (works) vs inline type alias (broken) ───────
+// ── 5b. Optional indexed access (swagger data?: T pattern) ──────────
+const optionalIndexedResult = api.exportInterfaceToJson(
+  'test-fixtures/indexed-access-optional/main.ts',
+  'test-fixtures/output/indexed-optional.json',
+  { basePath: root },
+)
+const optionalExpected = JSON.parse(
+  readFileSync(join(root, 'test-fixtures/indexed-access-optional/expected.json'), 'utf-8'),
+)
+assert('indexed-access-optional: matches expected', deepEqual(optionalIndexedResult, optionalExpected))
+
+// ── 5c. Primitive indexed access — skipped with warning ─────────────
+const originalWarn = console.warn
+const primitiveWarnLogs = []
+console.warn = (...args) => {
+  primitiveWarnLogs.push(args.join(' '))
+  originalWarn(...args)
+}
+const primitiveResult = api.exportInterfaceToJson(
+  'test-fixtures/indexed-access-primitive/main.ts',
+  'test-fixtures/output/indexed-primitive.json',
+  { basePath: root },
+)
+console.warn = originalWarn
+assert('indexed-access-primitive: IBooleanUnwrapped skipped', !primitiveResult.IBooleanUnwrapped)
+assert(
+  'indexed-access-primitive: emits skip warning',
+  primitiveWarnLogs.some((line) => line.includes('IBooleanUnwrapped') && line.includes('skipped')),
+)
+
+const primitiveWithOption = api.exportInterfaceToJson(
+  'test-fixtures/indexed-access-primitive/main.ts',
+  'test-fixtures/output/indexed-primitive-with-option.json',
+  { basePath: root, includePrimitives: true },
+)
+assert(
+  'indexed-access-primitive: includePrimitives emits _value',
+  primitiveWithOption.IBooleanUnwrapped?._value === '_value',
+)
+
+// ── 5d. Quoted swagger property names ───────────────────────────────
+const quotedResult = api.exportInterfaceToJson(
+  'test-fixtures/quoted-property-names/main.ts',
+  'test-fixtures/output/quoted.json',
+  { basePath: root },
+)
+assert(
+  'quoted-property-names: unquoted key',
+  Object.prototype.hasOwnProperty.call(quotedResult.IKeycloakSettings ?? {}, 'not-before-policy'),
+)
+assert(
+  'quoted-property-names: no escaped quotes in key',
+  !Object.keys(quotedResult.IKeycloakSettings ?? {}).some((key) => key.includes('"')),
+)
+
+// ── 6. Inline type aliases and interfaces ───────────────────────────
 const inlineResult = api.exportInterfaceToJson(
   'test-fixtures/inline-types/main.ts',
   'test-fixtures/output/inline.json',
   { basePath: root },
 )
 assert('inline: IInlineIface works', !!inlineResult.IInlineIface?.email)
-if (!inlineResult.IInlineReq) {
-  warn('inline: IInlineReq missing', 'inline object type alias not supported by extractTypeAlias')
-} else {
-  assert('inline: IInlineReq works', !!inlineResult.IInlineReq.username)
-}
+assert('inline: IInlineReq works', !!inlineResult.IInlineReq?.username)
+assert('inline: IInlineReq has password', inlineResult.IInlineReq?.password === 'password')
 
 // ── 7. Missing import file warning ──────────────────────────────────
 const warnLogs = []
-const originalWarn = console.warn
 console.warn = (...args) => {
   warnLogs.push(args.join(' '))
   originalWarn(...args)
@@ -147,14 +192,7 @@ const esmJsResult = api.exportInterfaceToJson(
   'test-fixtures/output/esm-js.json',
   { basePath: root },
 )
-if (!esmJsResult.IEsmStyleImport) {
-  warn(
-    'esm-js-extension: .js suffix imports not resolved',
-    'import from "./data-contracts.js" fails — resolver checks .js file literally, does not map to .ts',
-  )
-} else {
-  assert('esm-js-extension: resolves .js suffix imports', !!esmJsResult.IEsmStyleImport.username)
-}
+assert('esm-js-extension: resolves .js suffix imports', !!esmJsResult.IEsmStyleImport?.username)
 
 // ── 8. CLI single-file mode ─────────────────────────────────────────
 const cliSingle = runCli([
@@ -248,6 +286,37 @@ const nsResult = api.exportInterfaceToJson(
 assert('v2.0 namespace: IUser from API namespace', !!nsResult.IUser?.fullName)
 assert('v2.0 namespace: IProduct from API namespace', !!nsResult.IProduct?.title)
 assert('v2.0 namespace: outside types excluded', !nsResult.IOutsideNamespace)
+
+// ── 15. v2.1 — flatten output ───────────────────────────────────────
+const flattenResult = api.exportInterfaceToJson(
+  'test-fixtures/v2.1/flatten.ts',
+  'test-fixtures/output/v2-flatten.json',
+  { basePath: root, flatten: true },
+)
+assert('v2.1 flatten: data.id key', flattenResult.INestedRes?.['data.id'] === 'data.id')
+assert('v2.1 flatten: message key', flattenResult.INestedRes?.message === 'message')
+
+// ── 16. v2.1 — expandArrays ─────────────────────────────────────────
+const arraysResult = api.exportInterfaceToJson(
+  'test-fixtures/v2.1/arrays.ts',
+  'test-fixtures/output/v2-arrays.json',
+  { basePath: root, expandArrays: true },
+)
+assert('v2.1 arrays: items expanded', arraysResult.IOrderList?.items?.productId === 'productId')
+
+// ── 17. v2.1 — mergeExisting preserves translations ─────────────────
+const mergeOut = join(root, 'test-fixtures/output/v2-merge.json')
+writeFileSync(
+  mergeOut,
+  readFileSync(join(root, 'test-fixtures/v2.1/merge-existing.json'), 'utf-8'),
+)
+const mergeResult = api.exportInterfaceToJson(
+  'test-fixtures/v2.1/merge.ts',
+  'test-fixtures/output/v2-merge.json',
+  { basePath: root, mergeExisting: true },
+)
+assert('v2.1 merge: keeps translated username', mergeResult.IAuthLoginReq?.username === 'نام کاربری')
+assert('v2.1 merge: adds scaffold password', mergeResult.IAuthLoginReq?.password === 'password')
 
 // ── Report ──────────────────────────────────────────────────────────
 console.log('\n══════════════════════════════════════════')

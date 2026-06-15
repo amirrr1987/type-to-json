@@ -3,7 +3,7 @@ import { dirname, join, resolve } from 'path'
 import { fileURLToPath, pathToFileURL } from 'url'
 import { tmpdir } from 'os'
 import ts from 'typescript'
-import type { AliasMap } from './types.js'
+import type { AliasMap, MappingOptions } from './types.js'
 
 export const CONFIG_FILENAME = 'type-to-json.config.ts'
 export const NPM_SCRIPT_NAME = 'type-json'
@@ -13,12 +13,27 @@ export interface ExportEntry {
   output: string
   /** Only export types from this namespace in the input file */
   namespace?: string
+  /** Dot-path keys instead of nested objects (e.g. `data.id`) */
+  flatten?: boolean
+  /** Preserve existing translated values in the output file */
+  mergeExisting?: boolean
+  /** Emit placeholder key for primitive-only exports */
+  includePrimitives?: boolean
+  /** Expand `ItemDTO[]` into nested item field keys */
+  expandArrays?: boolean
 }
 
 export interface TypeToJsonConfig {
   entries: ExportEntry[]
   aliases?: AliasMap
   resolvePaths?: string[]
+  /** Reuse path aliases from a tsconfig (e.g. `./tsconfig.app.json`) */
+  extendsTsConfig?: string
+  flatten?: boolean
+  mergeExisting?: boolean
+  includePrimitives?: boolean
+  expandArrays?: boolean
+  primitiveKey?: string
 }
 
 export function defineConfig(config: TypeToJsonConfig): TypeToJsonConfig {
@@ -28,10 +43,12 @@ export function defineConfig(config: TypeToJsonConfig): TypeToJsonConfig {
 export const DEFAULT_CONFIG_TEMPLATE = `import { defineConfig } from 'type-to-json'
 
 export default defineConfig({
+  extendsTsConfig: './tsconfig.app.json',
+  mergeExisting: true,
   entries: [
     {
       input: 'src/interfaces/example.interface.ts',
-      output: 'src/locales/labels/example.json',
+      output: 'src/locales/labels/example.fa.json',
     },
   ],
   aliases: {

@@ -78,6 +78,15 @@ function tryResolveFile(candidate: string): string | null {
     return candidate
   }
 
+  // ESM convention: import './foo.js' resolves to foo.ts
+  if (candidate.endsWith('.js') && !existsSync(candidate)) {
+    const tsCandidate = candidate.slice(0, -3)
+    for (const ext of TS_EXTENSIONS) {
+      const full = tsCandidate + ext
+      if (existsSync(full)) return full
+    }
+  }
+
   // Try appending extensions
   for (const ext of TS_EXTENSIONS) {
     const full = candidate + ext
@@ -102,6 +111,7 @@ export function buildResolverConfig(
   aliases: AliasMap,
   resolvePaths: string[],
   basePath: string = process.cwd(),
+  extendsTsConfig?: string,
 ): ResolverConfig {
   const normalizedAliases: AliasMap = {}
 
@@ -113,5 +123,6 @@ export function buildResolverConfig(
     basePath,
     resolvePaths: resolvePaths.map((p) => resolve(basePath, p)),
     aliases: normalizedAliases,
+    extendsTsConfig,
   }
 }

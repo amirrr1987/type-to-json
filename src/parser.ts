@@ -12,6 +12,8 @@ import type {
 } from './types.js'
 import { resolveImport } from './resolver.js'
 import { formatError, warn } from './errors.js'
+import { normalizeRootType } from './mapping.js'
+import { loadTsConfigAliases, mergeAliasMaps } from './tsconfig-loader.js'
 
 export function parseFile(
   filePath: string,
@@ -27,6 +29,7 @@ export function parseFile(
     classes: new Map(),
     config,
     namespace: options.namespace,
+    mapping: options.mapping,
     program: null,
     checker: null,
   }
@@ -237,9 +240,11 @@ function propertyFromMember(
 }
 
 function buildCompilerOptions(config: ResolverConfig): ts.CompilerOptions {
+  const tsconfigAliases = loadTsConfigAliases(config.basePath, config.extendsTsConfig)
+  const mergedAliases = mergeAliasMaps(tsconfigAliases, config.aliases)
   const paths: Record<string, string[]> = {}
 
-  for (const [alias, target] of Object.entries(config.aliases)) {
+  for (const [alias, target] of Object.entries(mergedAliases)) {
     const pattern = alias.endsWith('/') ? `${alias}*` : `${alias}/*`
     const targetPattern = target.endsWith('/') ? `${target}*` : `${target}/*`
     paths[pattern] = [targetPattern]
@@ -318,12 +323,20 @@ export function findClassDeclaration(
   return found
 }
 
+function getPropertyKey(symbol: ts.Symbol): string {
+  const name = symbol.getName()
+  if (name.length >= 2 && name.startsWith('"') && name.endsWith('"')) {
+    return name.slice(1, -1)
+  }
+  return name
+}
+
 function propertyFromSymbol(
   symbol: ts.Symbol,
   checker: ts.TypeChecker,
   fallbackLocation: ts.Node,
 ): InterfaceProperty {
-  const name = symbol.getName()
+  const name = getPropertyKey(symbol)
   const declarations = symbol.getDeclarations()
   const decl = declarations?.find(ts.isPropertySignature)
     ?? declarations?.find(ts.isMethodSignature)
@@ -347,10 +360,12 @@ function propertiesFromType(
   checker: ts.TypeChecker,
   location: ts.Node,
 ): InterfaceProperty[] {
-  if (type.isIntersection()) {
+  const normalized = normalizeRootType(type, checker)
+
+  if (normalized.isIntersection()) {
     const merged = new Map<string, InterfaceProperty>()
 
-    for (const constituent of type.types) {
+    for (const constituent of normalized.types) {
       for (const prop of propertiesFromType(constituent, checker, location)) {
         merged.set(prop.name, prop)
       }
@@ -363,11 +378,11 @@ function propertiesFromType(
     return Array.from(merged.values())
   }
 
-  const symbols = checker.getPropertiesOfType(type)
+  const symbols = checker.getPropertiesOfType(normalized)
   const merged = new Map<string, InterfaceProperty>()
 
   for (const symbol of symbols) {
-    const name = symbol.getName()
+    const name = getPropertyKey(symbol)
     if (name.startsWith('__')) continue
     merged.set(name, propertyFromSymbol(symbol, checker, location))
   }
@@ -379,7 +394,8 @@ function propertiesFromDeclaration(
   node: ts.InterfaceDeclaration | ts.TypeAliasDeclaration,
   checker: ts.TypeChecker,
 ): InterfaceProperty[] {
-  const declaredType = checker.getTypeAtLocation(node)
+  const typeNode = ts.isTypeAliasDeclaration(node) ? node.type : node
+  const declaredType = checker.getTypeAtLocation(typeNode)
   return propertiesFromType(declaredType, checker, node)
 }
 
