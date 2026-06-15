@@ -126,19 +126,24 @@ export default defineConfig({
 | `entries` | `{ input, output, namespace? }[]` — TypeScript sources and JSON output paths |
 | `entries[].namespace` | Only export types from this `namespace Foo { ... }` block |
 | `entries[].flatten` | Dot-path keys (`data.id`) instead of nested objects |
-| `entries[].mergeExisting` | Keep translated values already in the output file |
-| `entries[].includePrimitives` | Placeholder key for boolean/string/number-only exports |
+| `entries[].mergeExisting` | Deprecated — use `mergeStrategy: 'merge-labels'` |
+| `entries[].mergeStrategy` | `'overwrite'` (default) or `'merge-labels'` to keep translated values |
+| `entries[].includePrimitives` | Placeholder key for boolean/string/number-only exports (default: skip + warn) |
 | `entries[].expandArrays` | Expand `ItemDTO[]` into item field keys |
+| `entries[].strict` | Exit with error if any export is skipped |
+| `entries[].skippedInOutput` | Include `__meta.skipped` in JSON when exports are skipped |
+| `mergeStrategy` | Global default (`merge-labels` preserves Persian/translation values) |
+| `strict` | Fail the run when any exported type resolves to an empty map |
+| `warnOnSkip` | Log skipped exports with resolved TS type (default: `true`) |
+| `skippedInOutput` | Write `__meta.skipped` array into output JSON |
 | `flatten` | Global default for `entries[].flatten` |
-| `mergeExisting` | Global default — preserve existing locale translations on regenerate |
 | `includePrimitives` | Global default for primitive-only exports |
 | `expandArrays` | Global default for array element expansion |
 | `primitiveKey` | Key for primitive-only types (default: `_value`) |
 | `extendsTsConfig` | Reuse `paths` from a tsconfig (e.g. `./tsconfig.app.json`) |
 | `aliases` | Path aliases for resolving imports |
 | `resolvePaths` | Extra search paths for imports |
-
-## CLI
+| `useJsDocLabels` | Use JSDoc summary as label value when present on DTO fields |
 
 ```bash
 npm run type-json
@@ -177,8 +182,8 @@ npx type-to-json src/interfaces/auth.interface.ts \
 | v1.3 | ✅ | Generics (opaque), intersections, enums |
 | v2.0 | ✅ | Nested object expansion, namespace, class `implements` |
 | v2.0.2 | ✅ | Optional indexed access (`data?: T`), skip warnings, quoted property names |
-| v2.1 | ✅ | `flatten`, `mergeExisting`, `includePrimitives`, `expandArrays`, `extendsTsConfig`, ESM `.js` imports |
-| v2.2 | Planned | Enum labels, `exclude`/`include` fields, vue-i18n bundle export |
+| v2.1 | ✅ | `flatten`, `mergeExisting`, `includePrimitives`, `expandArrays`, `extendsTsConfig` |
+| v2.2 | ✅ | `mergeStrategy`, `strict`, `skippedInOutput`, quoted keys fix, nullable union unwrap, banking fixtures |
 
 ## Project structure
 

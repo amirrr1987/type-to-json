@@ -2,3 +2,4 @@ node_modules/
 dist/
 examples/output/
 type-to-json.config.ts
+debug-*.log

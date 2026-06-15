@@ -5,12 +5,22 @@ import ora from 'ora'
 import { existsSync } from 'fs'
 import { resolve } from 'path'
 import { loadConfig } from './config.js'
-import { exportInterfaceToJson, exportInterfaceEntries, resolveConfigOptions } from './core.js'
+import { exportInterfaceEntries, resolveConfigOptions, runExport } from './core.js'
 import { parseAliasArg, readPackageVersion, shortPath } from './utils.js'
-import type { AliasMap } from './types.js'
+import type { AliasMap, SkippedExport } from './types.js'
 
 const program = new Command()
 const packageVersion = readPackageVersion()
+
+function printSkippedSummary(skipped: SkippedExport[]): void {
+  if (skipped.length === 0) return
+  console.log()
+  console.log(chalk.yellow(`  ⚠ Skipped ${skipped.length} export(s):`))
+  for (const item of skipped) {
+    console.log(chalk.yellow(`    • ${item.name} (${item.resolvedType})`))
+  }
+  console.log()
+}
 
 async function runFromConfig(): Promise<void> {
   const config = await loadConfig()
@@ -20,12 +30,13 @@ async function runFromConfig(): Promise<void> {
   }).start()
 
   try {
-    exportInterfaceEntries(config.entries, {
+    const { skipped } = exportInterfaceEntries(config.entries, {
       ...resolveConfigOptions(config),
       aliases: config.aliases,
       resolvePaths: config.resolvePaths,
     })
     spinner.succeed(chalk.green('JSON mappings generated'))
+    printSkippedSummary(skipped)
     console.log()
     for (const entry of config.entries) {
       console.log(chalk.bold.green(`  ✔ ${entry.output}`))
@@ -81,7 +92,7 @@ async function runSingleFile(inputArg: string, options: {
   const spinner = ora({ text: 'Generating JSON mapping...', color: 'cyan' }).start()
 
   try {
-    const mapping = exportInterfaceToJson(inputArg, options.output, {
+    const { mapping, skipped } = runExport(inputArg, options.output, {
       aliases: aliasMap,
       resolvePaths,
       flatten: options.flatten,
@@ -89,6 +100,8 @@ async function runSingleFile(inputArg: string, options: {
       includePrimitives: options.includePrimitives,
       expandArrays: options.expandArrays,
     })
+
+    printSkippedSummary(skipped)
 
     const entryCount = Object.keys(mapping).length
     spinner.succeed(chalk.green('JSON mapping generated'))

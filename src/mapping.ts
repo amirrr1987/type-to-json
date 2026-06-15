@@ -1,6 +1,7 @@
 import ts from 'typescript'
 import type { PropertyMapping, MappingOptions } from './types.js'
 import { warn } from './errors.js'
+import { normalizePropertyName } from './utils.js'
 
 const MAX_NESTING_DEPTH = 10
 const DEFAULT_PRIMITIVE_KEY = '_value'
@@ -19,9 +20,11 @@ function isPrimitiveType(type: ts.Type, checker: ts.TypeChecker): boolean {
   )
 }
 
-function primitivePlaceholder(
-  options?: MappingOptions,
-): Record<string, PropertyMapping> {
+function isNullishOrVoidType(type: ts.Type): boolean {
+  return (type.flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined | ts.TypeFlags.Void)) !== 0
+}
+
+function primitivePlaceholder(options?: MappingOptions): Record<string, PropertyMapping> {
   const key = options?.primitiveKey ?? DEFAULT_PRIMITIVE_KEY
   return { [key]: key }
 }
@@ -41,36 +44,66 @@ function getArrayElementType(type: ts.Type, checker: ts.TypeChecker): ts.Type | 
 }
 
 function hasObjectProperties(type: ts.Type, checker: ts.TypeChecker): boolean {
+  if (isNullishOrVoidType(type) || isPrimitiveType(type, checker)) return false
   const nonNullable = checker.getNonNullableType(type)
-  return (nonNullable.flags & ts.TypeFlags.Object) !== 0
-    && checker.getPropertiesOfType(nonNullable).length > 0
+  if (!(nonNullable.flags & ts.TypeFlags.Object)) return false
+  if (checker.getPropertiesOfType(nonNullable).length > 0) return true
+
+  const symbol = nonNullable.getSymbol()
+  if (symbol) {
+    return checker.getPropertiesOfType(checker.getDeclaredTypeOfSymbol(symbol)).length > 0
+  }
+
+  return false
 }
 
 export function normalizeRootType(type: ts.Type, checker: ts.TypeChecker): ts.Type {
-  const nonNullable = checker.getNonNullableType(type)
+  let current = checker.getNonNullableType(type)
 
-  if (nonNullable.isUnion()) {
-    const objectMembers = nonNullable.types.filter((t) => hasObjectProperties(t, checker))
-    if (objectMembers.length === 1) {
-      return checker.getNonNullableType(objectMembers[0]!)
-    }
-    if (objectMembers.length > 1) {
-      warn(
-        `union type resolves to multiple object members (${checker.typeToString(nonNullable)}) — using first object member`,
-      )
-      return checker.getNonNullableType(objectMembers[0]!)
+  if (current.isUnion()) {
+    const meaningful = current.types.filter((t) => !isNullishOrVoidType(t))
+    if (meaningful.length === 1) {
+      current = checker.getNonNullableType(meaningful[0]!)
+    } else if (meaningful.length > 1) {
+      const objectMembers = meaningful.filter((t) => hasObjectProperties(t, checker))
+      if (objectMembers.length === 1) {
+        current = checker.getNonNullableType(objectMembers[0]!)
+      } else if (objectMembers.length > 1) {
+        warn(
+          `union type resolves to multiple object members (${checker.typeToString(current)}) — using first object member`,
+        )
+        current = checker.getNonNullableType(objectMembers[0]!)
+      } else {
+        const primitiveMembers = meaningful.filter((t) => isPrimitiveType(t, checker))
+        if (primitiveMembers.length === 1) {
+          current = checker.getNonNullableType(primitiveMembers[0]!)
+        }
+      }
     }
   }
 
-  return nonNullable
+  return current
 }
 
-function getPropertyKey(symbol: ts.Symbol): string {
-  const name = symbol.getName()
-  if (name.length >= 2 && name.startsWith('"') && name.endsWith('"')) {
-    return name.slice(1, -1)
+function propertyKeyFromSymbol(symbol: ts.Symbol): string {
+  return normalizePropertyName(symbol.getName())
+}
+
+function labelForProperty(
+  symbol: ts.Symbol,
+  key: string,
+  checker: ts.TypeChecker,
+  options?: MappingOptions,
+): string {
+  if (options?.useJsDocLabels) {
+    const docs = symbol.getDocumentationComment(checker)
+    if (docs.length > 0) {
+      const text = ts.displayPartsToString(docs).trim()
+      const firstLine = text.split('\n').find((line) => line.trim().length > 0)
+      if (firstLine) return firstLine.trim()
+    }
   }
-  return name
+  return key
 }
 
 function getPropertyType(symbol: ts.Symbol, checker: ts.TypeChecker, fallback: ts.Node): ts.Type {
@@ -78,18 +111,65 @@ function getPropertyType(symbol: ts.Symbol, checker: ts.TypeChecker, fallback: t
   return checker.getTypeOfSymbolAtLocation(symbol, location)
 }
 
+function getIndexKey(indexType: ts.TypeNode): string | undefined {
+  if (ts.isLiteralTypeNode(indexType) && ts.isStringLiteral(indexType.literal)) {
+    return indexType.literal.text
+  }
+  if (ts.isStringLiteral(indexType)) {
+    return indexType.text
+  }
+  if (ts.isIdentifier(indexType)) {
+    return indexType.text
+  }
+  return undefined
+}
+
+function findPropertySymbol(
+  objectType: ts.Type,
+  key: string,
+  checker: ts.TypeChecker,
+): ts.Symbol | undefined {
+  return objectType.getProperty(key) ?? checker.getPropertyOfType(objectType, key)
+}
+
 function isObjectLike(type: ts.Type, checker: ts.TypeChecker): boolean {
   const nonNullable = checker.getNonNullableType(type)
+  if (isPrimitiveType(nonNullable, checker)) return false
   if (!(nonNullable.flags & ts.TypeFlags.Object)) return false
   if (checker.isArrayType(nonNullable) || checker.isTupleType(nonNullable)) return false
-  return checker.getPropertiesOfType(nonNullable).length > 0
+
+  if (checker.getPropertiesOfType(nonNullable).length > 0) return true
+
+  const symbol = nonNullable.getSymbol()
+  if (symbol) {
+    const declared = checker.getDeclaredTypeOfSymbol(symbol)
+    return checker.getPropertiesOfType(declared).length > 0
+  }
+
+  return false
 }
 
 function resolveTypeAtNode(typeNode: ts.TypeNode, checker: ts.TypeChecker): ts.Type {
   if (ts.isIndexedAccessTypeNode(typeNode)) {
     const objectType = checker.getTypeAtLocation(typeNode.objectType)
-    const indexType = checker.getTypeAtLocation(typeNode.indexType)
-    return checker.getIndexedAccessType(objectType, indexType)
+    const key = getIndexKey(typeNode.indexType)
+
+    if (key) {
+      const prop = findPropertySymbol(objectType, key, checker)
+      if (prop) {
+        const location = prop.valueDeclaration ?? typeNode
+        return checker.getTypeOfSymbolAtLocation(prop, location)
+      }
+
+      for (const sym of checker.getPropertiesOfType(objectType)) {
+        if (propertyKeyFromSymbol(sym) === key) {
+          const location = sym.valueDeclaration ?? typeNode
+          return checker.getTypeOfSymbolAtLocation(sym, location)
+        }
+      }
+    }
+
+    return normalizeRootType(checker.getTypeAtLocation(typeNode), checker)
   }
 
   return checker.getTypeAtLocation(typeNode)
@@ -112,13 +192,11 @@ function isExpandableType(type: ts.Type, checker: ts.TypeChecker): boolean {
 function resolveObjectType(type: ts.Type, checker: ts.TypeChecker): ts.Type {
   const normalized = normalizeRootType(type, checker)
 
-  if (normalized.isTypeReference()) {
-    const symbol = normalized.getSymbol()
-    if (symbol) {
-      const declared = checker.getDeclaredTypeOfSymbol(symbol)
-      if (checker.getPropertiesOfType(declared).length > 0) {
-        return declared
-      }
+  const symbol = normalized.getSymbol()
+  if (symbol) {
+    const declared = checker.getDeclaredTypeOfSymbol(symbol)
+    if (checker.getPropertiesOfType(declared).length > 0) {
+      return declared
     }
   }
 
@@ -145,19 +223,22 @@ export function buildNestedMapping(
     return result
   }
 
-  const symbols = checker.getPropertiesOfType(normalized)
-
-  if (symbols.length === 0 && options?.includePrimitives && isPrimitiveType(normalized, checker)) {
-    return primitivePlaceholder(options)
+  if (isPrimitiveType(normalized, checker)) {
+    if (options?.includePrimitives) return primitivePlaceholder(options)
+    return {}
   }
 
+  const symbols = checker.getPropertiesOfType(normalized)
+
   for (const symbol of symbols) {
-    const name = getPropertyKey(symbol)
+    const name = propertyKeyFromSymbol(symbol)
     if (name.startsWith('__')) continue
 
     const decl = symbol.valueDeclaration ?? symbol.declarations?.[0]
+    const label = labelForProperty(symbol, name, checker, options)
+
     if (!decl) {
-      result[name] = name
+      result[name] = label
       continue
     }
 
@@ -168,7 +249,7 @@ export function buildNestedMapping(
       if (elementType && isExpandableType(elementType, checker)) {
         const objectType = resolveObjectType(elementType, checker)
         const nested = buildNestedMapping(objectType, checker, depth + 1, options)
-        result[name] = Object.keys(nested).length > 0 ? nested : name
+        result[name] = Object.keys(nested).length > 0 ? nested : label
         continue
       }
     }
@@ -176,9 +257,9 @@ export function buildNestedMapping(
     if (isExpandableType(propType, checker)) {
       const objectType = resolveObjectType(propType, checker)
       const nested = buildNestedMapping(objectType, checker, depth + 1, options)
-      result[name] = Object.keys(nested).length > 0 ? nested : name
+      result[name] = Object.keys(nested).length > 0 ? nested : label
     } else {
-      result[name] = name
+      result[name] = label
     }
   }
 
@@ -190,8 +271,9 @@ export function mappingFromDeclaration(
   checker: ts.TypeChecker,
   options?: MappingOptions,
 ): Record<string, PropertyMapping> {
-  const typeNode = ts.isTypeAliasDeclaration(node) ? node.type : node
-  const type = resolveTypeAtNode(typeNode, checker)
+  const type = ts.isTypeAliasDeclaration(node)
+    ? resolveTypeAtNode(node.type, checker)
+    : checker.getTypeAtLocation(node)
   return buildNestedMapping(type, checker, 0, options)
 }
 

@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from 'url'
 import { tmpdir } from 'os'
 import ts from 'typescript'
 import type { AliasMap, MappingOptions } from './types.js'
+import type { MergeStrategy } from './output.js'
 
 export const CONFIG_FILENAME = 'type-to-json.config.ts'
 export const NPM_SCRIPT_NAME = 'type-json'
@@ -11,29 +12,34 @@ export const NPM_SCRIPT_NAME = 'type-json'
 export interface ExportEntry {
   input: string
   output: string
-  /** Only export types from this namespace in the input file */
   namespace?: string
-  /** Dot-path keys instead of nested objects (e.g. `data.id`) */
   flatten?: boolean
-  /** Preserve existing translated values in the output file */
+  /** @deprecated Use mergeStrategy: 'merge-labels' */
   mergeExisting?: boolean
-  /** Emit placeholder key for primitive-only exports */
+  mergeStrategy?: MergeStrategy
   includePrimitives?: boolean
-  /** Expand `ItemDTO[]` into nested item field keys */
   expandArrays?: boolean
+  useJsDocLabels?: boolean
+  strict?: boolean
+  warnOnSkip?: boolean
+  skippedInOutput?: boolean
 }
 
 export interface TypeToJsonConfig {
   entries: ExportEntry[]
   aliases?: AliasMap
   resolvePaths?: string[]
-  /** Reuse path aliases from a tsconfig (e.g. `./tsconfig.app.json`) */
   extendsTsConfig?: string
   flatten?: boolean
   mergeExisting?: boolean
+  mergeStrategy?: MergeStrategy
   includePrimitives?: boolean
   expandArrays?: boolean
   primitiveKey?: string
+  useJsDocLabels?: boolean
+  strict?: boolean
+  warnOnSkip?: boolean
+  skippedInOutput?: boolean
 }
 
 export function defineConfig(config: TypeToJsonConfig): TypeToJsonConfig {
@@ -44,11 +50,12 @@ export const DEFAULT_CONFIG_TEMPLATE = `import { defineConfig } from 'type-to-js
 
 export default defineConfig({
   extendsTsConfig: './tsconfig.app.json',
-  mergeExisting: true,
+  mergeStrategy: 'merge-labels',
+  warnOnSkip: true,
   entries: [
     {
       input: 'src/interfaces/example.interface.ts',
-      output: 'src/locales/labels/example.fa.json',
+      output: 'src/locales/interfaces/example.fa.json',
     },
   ],
   aliases: {

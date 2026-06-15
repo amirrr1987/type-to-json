@@ -1,0 +1,6 @@
+{
+  "IAuthLoginReq": {
+    "username": "نام کاربری",
+    "password": "password"
+  }
+}

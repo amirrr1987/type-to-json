@@ -2,6 +2,19 @@ import { readFileSync } from 'fs'
 import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
 
+/** Strip surrounding single/double quotes from TS symbol or AST property names */
+export function normalizePropertyName(name: string): string {
+  const trimmed = name.trim()
+  if (trimmed.length >= 2) {
+    const first = trimmed[0]
+    const last = trimmed[trimmed.length - 1]
+    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
+      return trimmed.slice(1, -1)
+    }
+  }
+  return trimmed
+}
+
 /**
  * Parse --alias flag values like "@/=./src" into AliasMap entries
  */

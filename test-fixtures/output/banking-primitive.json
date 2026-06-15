@@ -1,0 +1,16 @@
+{
+  "IAuthLoginRes": {
+    "access_token": "access_token",
+    "expires_in": "expires_in",
+    "refresh_token": "refresh_token",
+    "not-before-policy": "not-before-policy"
+  },
+  "IAccountBalanceRes": {
+    "accountId": "accountId",
+    "balance": "balance",
+    "currency": "currency"
+  },
+  "IBooleanUnwrapped": {
+    "_value": "_value"
+  }
+}

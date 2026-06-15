@@ -1,0 +1,6 @@
+{
+  "IKeycloakSettings": {
+    "not-before-policy": "not-before-policy",
+    "realm": "realm"
+  }
+}

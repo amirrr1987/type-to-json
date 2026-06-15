@@ -13,6 +13,7 @@ import type {
 import { resolveImport } from './resolver.js'
 import { formatError, warn } from './errors.js'
 import { normalizeRootType } from './mapping.js'
+import { normalizePropertyName } from './utils.js'
 import { loadTsConfigAliases, mergeAliasMaps } from './tsconfig-loader.js'
 
 export function parseFile(
@@ -228,7 +229,7 @@ function propertyFromMember(
   const propName = member.name
     ? ts.isIdentifier(member.name)
       ? member.name.text
-      : member.name.getText(sourceFile)
+      : normalizePropertyName(member.name.getText(sourceFile))
     : ''
 
   if (!propName) return null
@@ -323,12 +324,8 @@ export function findClassDeclaration(
   return found
 }
 
-function getPropertyKey(symbol: ts.Symbol): string {
-  const name = symbol.getName()
-  if (name.length >= 2 && name.startsWith('"') && name.endsWith('"')) {
-    return name.slice(1, -1)
-  }
-  return name
+function propertyKeyFromSymbol(symbol: ts.Symbol): string {
+  return normalizePropertyName(symbol.getName())
 }
 
 function propertyFromSymbol(
@@ -336,7 +333,7 @@ function propertyFromSymbol(
   checker: ts.TypeChecker,
   fallbackLocation: ts.Node,
 ): InterfaceProperty {
-  const name = getPropertyKey(symbol)
+  const name = propertyKeyFromSymbol(symbol)
   const declarations = symbol.getDeclarations()
   const decl = declarations?.find(ts.isPropertySignature)
     ?? declarations?.find(ts.isMethodSignature)
@@ -382,7 +379,7 @@ function propertiesFromType(
   const merged = new Map<string, InterfaceProperty>()
 
   for (const symbol of symbols) {
-    const name = getPropertyKey(symbol)
+    const name = propertyKeyFromSymbol(symbol)
     if (name.startsWith('__')) continue
     merged.set(name, propertyFromSymbol(symbol, checker, location))
   }

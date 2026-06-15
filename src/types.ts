@@ -22,6 +22,27 @@ export interface MappingOptions {
   primitiveKey?: string
   /** Expand array element types when they are object-like */
   expandArrays?: boolean
+  /** Use first line of JSDoc on DTO properties as label value when present */
+  useJsDocLabels?: boolean
+}
+
+export interface SkippedExport {
+  name: string
+  kind: 'type alias' | 'interface' | 'class'
+  resolvedType: string
+  reason?: string
+}
+
+export interface OutputMeta {
+  skipped: SkippedExport[]
+}
+
+export const OUTPUT_META_KEY = '__meta' as const
+
+export interface GenerationOptions {
+  strict?: boolean
+  warnOnSkip?: boolean
+  skippedInOutput?: boolean
 }
 
 export interface InterfaceProperty {
@@ -59,9 +80,12 @@ export interface ClassDefinition {
 export type PropertyMapping = string | { [key: string]: PropertyMapping }
 
 export interface OutputMapping {
-  [exportName: string]: {
-    [propertyName: string]: PropertyMapping
-  }
+  [exportName: string]: Record<string, PropertyMapping>
+}
+
+export interface GenerationResult {
+  mapping: OutputMapping
+  skipped: SkippedExport[]
 }
 
 export interface ParseResult {

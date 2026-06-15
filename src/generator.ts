@@ -1,12 +1,19 @@
 import ts from 'typescript'
-import type { ParserContext, OutputMapping, PropertyMapping } from './types.js'
+import type {
+  ParserContext,
+  OutputMapping,
+  PropertyMapping,
+  GenerationResult,
+  SkippedExport,
+  GenerationOptions,
+} from './types.js'
 import { resolve } from 'path'
 import {
   findInterfaceDeclaration,
   findTypeAliasDeclaration,
   findClassDeclaration,
 } from './parser.js'
-import { mappingFromDeclaration, mappingFromClassImplements } from './mapping.js'
+import { mappingFromDeclaration, mappingFromClassImplements, normalizeRootType } from './mapping.js'
 import { warn } from './errors.js'
 
 function isFromInputFile(sourceFile: string, inputFile: string): boolean {
@@ -17,28 +24,58 @@ function isEmptyMapping(mapping: Record<string, PropertyMapping>): boolean {
   return Object.keys(mapping).length === 0
 }
 
-function warnSkippedExport(
-  exportName: string,
-  kind: 'type alias' | 'interface' | 'class',
-  ctx: ParserContext,
-  declaration: ts.InterfaceDeclaration | ts.TypeAliasDeclaration | ts.ClassDeclaration | null,
-): void {
-  const checker = ctx.checker
-  if (!checker || !declaration) {
-    warn(`skipped exported ${kind} "${exportName}" — resolved to empty property map`)
-    return
-  }
-
+function resolvedTypeString(
+  declaration: ts.InterfaceDeclaration | ts.TypeAliasDeclaration | ts.ClassDeclaration,
+  checker: ts.TypeChecker,
+): string {
   if (ts.isClassDeclaration(declaration)) {
-    warn(`skipped exported ${kind} "${exportName}" — resolved to empty property map (no implements clause)`)
-    return
+    return 'class (implements clause)'
   }
-
   const typeNode = ts.isTypeAliasDeclaration(declaration) ? declaration.type : declaration
   const type = checker.getTypeAtLocation(typeNode)
-  warn(
-    `skipped exported ${kind} "${exportName}" — resolved to empty property map (${checker.typeToString(type)})`,
-  )
+  return checker.typeToString(normalizeRootType(type, checker))
+}
+
+function skipReason(
+  declaration: ts.InterfaceDeclaration | ts.TypeAliasDeclaration,
+  checker: ts.TypeChecker | null,
+): string | undefined {
+  if (!checker || !ts.isTypeAliasDeclaration(declaration)) return undefined
+  const type = normalizeRootType(checker.getTypeAtLocation(declaration.type), checker)
+  const flags = type.flags
+  if (flags & ts.TypeFlags.Boolean) return 'primitive boolean — set includePrimitives: true to emit a placeholder key'
+  if (flags & (ts.TypeFlags.String | ts.TypeFlags.Number)) return 'primitive scalar — set includePrimitives: true to emit a placeholder key'
+  return undefined
+}
+
+function recordSkipped(
+  skipped: SkippedExport[],
+  exportName: string,
+  kind: SkippedExport['kind'],
+  ctx: ParserContext,
+  declaration: ts.InterfaceDeclaration | ts.TypeAliasDeclaration | ts.ClassDeclaration | null,
+  options: GenerationOptions,
+): void {
+  const checker = ctx.checker
+  const resolvedType = checker && declaration
+    ? resolvedTypeString(declaration, checker)
+    : 'unknown'
+
+  const entry: SkippedExport = {
+    name: exportName,
+    kind,
+    resolvedType,
+    reason: declaration && (ts.isTypeAliasDeclaration(declaration) || ts.isInterfaceDeclaration(declaration))
+      ? skipReason(declaration, checker)
+      : undefined,
+  }
+
+  skipped.push(entry)
+
+  if (options.warnOnSkip !== false) {
+    const detail = entry.reason ? ` (${entry.reason})` : ''
+    warn(`skipped exported ${kind} "${exportName}" — resolved to empty property map (${resolvedType})${detail}`)
+  }
 }
 
 function buildMappingFromTypeAlias(
@@ -104,8 +141,12 @@ function buildMappingFromClass(
 /**
  * Generate JSON mapping only for exports declared in the input file.
  */
-export function generateMapping(ctx: ParserContext): OutputMapping {
+export function generateMapping(
+  ctx: ParserContext,
+  options: GenerationOptions = {},
+): GenerationResult {
   const output: OutputMapping = {}
+  const skipped: SkippedExport[] = []
 
   for (const [aliasName, alias] of ctx.typeAliases) {
     if (!isFromInputFile(alias.sourceFile, ctx.inputFile)) continue
@@ -115,7 +156,7 @@ export function generateMapping(ctx: ParserContext): OutputMapping {
     if (!mapping || isEmptyMapping(mapping)) {
       const sourceFile = ctx.program?.getSourceFile(alias.sourceFile)
       const declaration = sourceFile ? findTypeAliasDeclaration(sourceFile, aliasName) ?? null : null
-      warnSkippedExport(aliasName, 'type alias', ctx, declaration)
+      recordSkipped(skipped, aliasName, 'type alias', ctx, declaration, options)
       continue
     }
 
@@ -131,7 +172,7 @@ export function generateMapping(ctx: ParserContext): OutputMapping {
     if (!mapping || isEmptyMapping(mapping)) {
       const sourceFile = ctx.program?.getSourceFile(iface.sourceFile)
       const declaration = sourceFile ? findInterfaceDeclaration(sourceFile, ifaceName) ?? null : null
-      warnSkippedExport(ifaceName, 'interface', ctx, declaration)
+      recordSkipped(skipped, ifaceName, 'interface', ctx, declaration, options)
       continue
     }
 
@@ -147,14 +188,14 @@ export function generateMapping(ctx: ParserContext): OutputMapping {
     if (!mapping || isEmptyMapping(mapping)) {
       const sourceFile = ctx.program?.getSourceFile(cls.sourceFile)
       const declaration = sourceFile ? findClassDeclaration(sourceFile, className) ?? null : null
-      warnSkippedExport(className, 'class', ctx, declaration)
+      recordSkipped(skipped, className, 'class', ctx, declaration, options)
       continue
     }
 
     output[className] = mapping
   }
 
-  return output
+  return { mapping: output, skipped }
 }
 
 export function generateMappingForInterfaces(

@@ -1,0 +1,11 @@
+{
+  "INestedItem": {
+    "id": "id",
+    "label": "label"
+  },
+  "INestedRes": {
+    "data.id": "data.id",
+    "data.label": "data.label",
+    "message": "message"
+  }
+}

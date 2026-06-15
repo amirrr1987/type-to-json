@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'fs'
-import type { OutputMapping, PropertyMapping } from './types.js'
+import type { OutputMapping, PropertyMapping, OutputMeta, SkippedExport } from './types.js'
+import { OUTPUT_META_KEY } from './types.js'
 
 function isNestedMapping(value: PropertyMapping | undefined): value is Record<string, PropertyMapping> {
   return typeof value === 'object' && value !== null
@@ -14,7 +15,7 @@ export function flattenPropertyMapping(
   for (const [key, value] of Object.entries(mapping)) {
     const path = prefix ? `${prefix}.${key}` : key
     if (typeof value === 'string') {
-      result[path] = value
+      result[path] = path
     } else {
       Object.assign(result, flattenPropertyMapping(value, path))
     }
@@ -27,6 +28,7 @@ export function flattenOutput(mapping: OutputMapping): OutputMapping {
   const result: OutputMapping = {}
 
   for (const [exportName, props] of Object.entries(mapping)) {
+    if (exportName === OUTPUT_META_KEY) continue
     result[exportName] = flattenPropertyMapping(props)
   }
 
@@ -55,13 +57,27 @@ function mergePropertyMapping(
   return merged
 }
 
+export function stripOutputMeta(mapping: OutputMapping): OutputMapping {
+  const { [OUTPUT_META_KEY]: _, ...rest } = mapping
+  return rest
+}
+
+export function attachOutputMeta(
+  mapping: OutputMapping | Record<string, unknown>,
+  skipped: SkippedExport[],
+): Record<string, unknown> {
+  if (skipped.length === 0) return mapping
+  return { ...mapping, [OUTPUT_META_KEY]: { skipped } satisfies OutputMeta }
+}
+
 export function mergeOutputWithExisting(
   generated: OutputMapping,
   existing: OutputMapping,
 ): OutputMapping {
+  const cleanExisting = stripOutputMeta(existing)
   const result: OutputMapping = { ...generated }
 
-  for (const [exportName, existingProps] of Object.entries(existing)) {
+  for (const [exportName, existingProps] of Object.entries(cleanExisting)) {
     if (!result[exportName]) {
       result[exportName] = existingProps
       continue
@@ -90,25 +106,35 @@ export function loadExistingOutput(outputPath: string): OutputMapping | null {
   }
 }
 
+export type MergeStrategy = 'overwrite' | 'merge-labels'
+
 export function applyOutputTransforms(
   mapping: OutputMapping,
   options: {
     flatten?: boolean
+    mergeStrategy?: MergeStrategy
     mergeExisting?: boolean
     outputPath?: string
+    skipped?: SkippedExport[]
+    skippedInOutput?: boolean
   },
-): OutputMapping {
-  let result = mapping
+): Record<string, unknown> {
+  let result: Record<string, unknown> = mapping
 
   if (options.flatten) {
-    result = flattenOutput(result)
+    result = flattenOutput(result as OutputMapping)
   }
 
-  if (options.mergeExisting && options.outputPath) {
+  const shouldMerge = options.mergeStrategy === 'merge-labels' || options.mergeExisting === true
+  if (shouldMerge && options.outputPath) {
     const existing = loadExistingOutput(options.outputPath)
     if (existing) {
-      result = mergeOutputWithExisting(result, existing)
+      result = mergeOutputWithExisting(result as OutputMapping, existing)
     }
+  }
+
+  if (options.skippedInOutput && options.skipped && options.skipped.length > 0) {
+    result = attachOutputMeta(result, options.skipped)
   }
 
   return result

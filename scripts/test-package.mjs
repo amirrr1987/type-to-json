@@ -57,7 +57,8 @@ assert('api: exportInterfaceEntries exported', typeof api.exportInterfaceEntries
 assert('api: defineConfig exported', typeof api.defineConfig === 'function')
 assert('api: loadConfig exported', typeof api.loadConfig === 'function')
 assert('api: CONFIG_FILENAME = type-to-json.config.ts', api.CONFIG_FILENAME === 'type-to-json.config.ts')
-assert('api: NPM_SCRIPT_NAME = type-json', api.NPM_SCRIPT_NAME === 'type-json')
+assert('api: runExport exported', typeof api.runExport === 'function')
+assert('api: normalizePropertyName exported', typeof api.normalizePropertyName === 'function')
 
 // ── 3. Example fixture (swagger indexed-access pattern) ─────────────
 const exampleOut = join(root, 'examples', 'output', 'test-auth.labels.json')
@@ -317,6 +318,56 @@ const mergeResult = api.exportInterfaceToJson(
 )
 assert('v2.1 merge: keeps translated username', mergeResult.IAuthLoginReq?.username === 'نام کاربری')
 assert('v2.1 merge: adds scaffold password', mergeResult.IAuthLoginReq?.password === 'password')
+
+// ── 18. Banking DTO indexed-access fixtures ─────────────────────────
+const bankingResult = api.exportInterfaceToJson(
+  'test-fixtures/banking/main.ts',
+  'test-fixtures/output/banking.json',
+  { basePath: root },
+)
+const bankingExpected = JSON.parse(
+  readFileSync(join(root, 'test-fixtures/banking/expected.json'), 'utf-8'),
+)
+assert('banking: IAuthLoginRes matches expected', deepEqual(bankingResult.IAuthLoginRes, bankingExpected.IAuthLoginRes))
+assert(
+  'banking: not-before-policy key unquoted',
+  Object.prototype.hasOwnProperty.call(bankingResult.IAuthLoginRes ?? {}, 'not-before-policy'),
+)
+assert('banking: IAccountBalanceRes matches expected', deepEqual(bankingResult.IAccountBalanceRes, bankingExpected.IAccountBalanceRes))
+assert('banking: IBooleanUnwrapped skipped by default', !bankingResult.IBooleanUnwrapped)
+
+const bankingPrimitive = api.exportInterfaceToJson(
+  'test-fixtures/banking/main.ts',
+  'test-fixtures/output/banking-primitive.json',
+  { basePath: root, includePrimitives: true },
+)
+assert('banking: includePrimitives emits _value', bankingPrimitive.IBooleanUnwrapped?._value === '_value')
+
+// ── 19. mergeStrategy merge-labels ──────────────────────────────────
+const mergeStrategyOut = join(root, 'test-fixtures/output/v2-merge-strategy.json')
+writeFileSync(
+  mergeStrategyOut,
+  readFileSync(join(root, 'test-fixtures/v2.1/merge-existing.json'), 'utf-8'),
+)
+const mergeStrategyResult = api.exportInterfaceToJson(
+  'test-fixtures/v2.1/merge.ts',
+  'test-fixtures/output/v2-merge-strategy.json',
+  { basePath: root, mergeStrategy: 'merge-labels' },
+)
+assert('mergeStrategy: keeps translated username', mergeStrategyResult.IAuthLoginReq?.username === 'نام کاربری')
+
+// ── 20. strict mode throws on skipped exports ───────────────────────
+let strictThrew = false
+try {
+  api.exportInterfaceToJson(
+    'test-fixtures/banking/main.ts',
+    'test-fixtures/output/banking-strict.json',
+    { basePath: root, strict: true, warnOnSkip: false },
+  )
+} catch {
+  strictThrew = true
+}
+assert('strict: throws when primitive export skipped', strictThrew)
 
 // ── Report ──────────────────────────────────────────────────────────
 console.log('\n══════════════════════════════════════════')

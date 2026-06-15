@@ -1,0 +1,12 @@
+{
+  "IOrderItem": {
+    "productId": "productId",
+    "quantity": "quantity"
+  },
+  "IOrderList": {
+    "items": {
+      "productId": "productId",
+      "quantity": "quantity"
+    }
+  }
+}

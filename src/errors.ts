@@ -21,6 +21,11 @@ export const Errors = {
     new TypeToJsonError(`Could not resolve intersection type: ${name}`, 'INTERSECTION_RESOLVE_FAILED'),
   NAMESPACE_NOT_FOUND: (name: string, file: string) =>
     new TypeToJsonError(`Namespace not found: ${name} in ${file}`, 'NAMESPACE_NOT_FOUND'),
+  SKIPPED_EXPORTS: (names: string[]) =>
+    new TypeToJsonError(
+      `Skipped ${names.length} export(s) with empty property maps: ${names.join(', ')}`,
+      'SKIPPED_EXPORTS',
+    ),
   CLASS_IMPLEMENTS_UNRESOLVED: (name: string) =>
     new TypeToJsonError(`Could not resolve implements clause for class: ${name}`, 'CLASS_IMPLEMENTS_UNRESOLVED'),
 }

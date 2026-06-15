@@ -1,6 +1,6 @@
 {
   "name": "type-to-json",
-  "version": "2.1.2",
+  "version": "2.2.0",
   "description": "Generate i18n label maps from exported TypeScript interfaces and types",
   "type": "module",
   "main": "./dist/index.js",
