@@ -85,23 +85,45 @@ function isObjectLike(type: ts.Type, checker: ts.TypeChecker): boolean {
   return checker.getPropertiesOfType(nonNullable).length > 0
 }
 
-function isExpandableType(type: ts.Type, checker: ts.TypeChecker): boolean {
-  const nonNullable = checker.getNonNullableType(type)
-
-  if (nonNullable.isUnion()) return false
-  if (checker.isArrayType(nonNullable) || checker.isTupleType(nonNullable)) return false
-
-  if (nonNullable.isIntersection()) {
-    return nonNullable.types.every((t) => isObjectLike(t, checker))
+function resolveTypeAtNode(typeNode: ts.TypeNode, checker: ts.TypeChecker): ts.Type {
+  if (ts.isIndexedAccessTypeNode(typeNode)) {
+    const objectType = checker.getTypeAtLocation(typeNode.objectType)
+    const indexType = checker.getTypeAtLocation(typeNode.indexType)
+    return checker.getIndexedAccessType(objectType, indexType)
   }
 
-  return isObjectLike(nonNullable, checker)
+  return checker.getTypeAtLocation(typeNode)
+}
+
+function isExpandableType(type: ts.Type, checker: ts.TypeChecker): boolean {
+  const normalized = normalizeRootType(type, checker)
+
+  if (checker.isArrayType(normalized) || checker.isTupleType(normalized)) return false
+
+  if (normalized.isIntersection()) {
+    return normalized.types.every((t) => isObjectLike(t, checker))
+  }
+
+  if (normalized.isUnion()) return false
+
+  return isObjectLike(normalized, checker)
 }
 
 function resolveObjectType(type: ts.Type, checker: ts.TypeChecker): ts.Type {
-  const nonNullable = checker.getNonNullableType(type)
-  if (nonNullable.isIntersection()) return nonNullable
-  return nonNullable
+  const normalized = normalizeRootType(type, checker)
+
+  if (normalized.isTypeReference()) {
+    const symbol = normalized.getSymbol()
+    if (symbol) {
+      const declared = checker.getDeclaredTypeOfSymbol(symbol)
+      if (checker.getPropertiesOfType(declared).length > 0) {
+        return declared
+      }
+    }
+  }
+
+  if (normalized.isIntersection()) return normalized
+  return normalized
 }
 
 export function buildNestedMapping(
@@ -139,7 +161,7 @@ export function buildNestedMapping(
       continue
     }
 
-    const propType = getPropertyType(symbol, checker, decl)
+    const propType = normalizeRootType(getPropertyType(symbol, checker, decl), checker)
 
     if (options?.expandArrays) {
       const elementType = getArrayElementType(propType, checker)
@@ -169,7 +191,7 @@ export function mappingFromDeclaration(
   options?: MappingOptions,
 ): Record<string, PropertyMapping> {
   const typeNode = ts.isTypeAliasDeclaration(node) ? node.type : node
-  const type = checker.getTypeAtLocation(typeNode)
+  const type = resolveTypeAtNode(typeNode, checker)
   return buildNestedMapping(type, checker, 0, options)
 }
 
