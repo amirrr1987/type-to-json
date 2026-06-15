@@ -9,3 +9,4 @@ export {
   NPM_SCRIPT_NAME,
 } from './config.js'
 export type { ExportEntry, TypeToJsonConfig } from './config.js'
+export type { MappingOptions, OutputMapping, PropertyMapping } from './types.js'

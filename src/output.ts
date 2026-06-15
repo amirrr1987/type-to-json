@@ -100,15 +100,15 @@ export function applyOutputTransforms(
 ): OutputMapping {
   let result = mapping
 
+  if (options.flatten) {
+    result = flattenOutput(result)
+  }
+
   if (options.mergeExisting && options.outputPath) {
     const existing = loadExistingOutput(options.outputPath)
     if (existing) {
       result = mergeOutputWithExisting(result, existing)
     }
-  }
-
-  if (options.flatten) {
-    result = flattenOutput(result)
   }
 
   return result

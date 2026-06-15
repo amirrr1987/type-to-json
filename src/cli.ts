@@ -42,6 +42,10 @@ async function runSingleFile(inputArg: string, options: {
   output: string
   resolvePaths?: string
   alias?: string[]
+  flatten?: boolean
+  mergeExisting?: boolean
+  includePrimitives?: boolean
+  expandArrays?: boolean
 }): Promise<void> {
   console.log()
   console.log(chalk.bold.cyan('  type-to-json') + chalk.gray(` v${packageVersion}`))
@@ -80,6 +84,10 @@ async function runSingleFile(inputArg: string, options: {
     const mapping = exportInterfaceToJson(inputArg, options.output, {
       aliases: aliasMap,
       resolvePaths,
+      flatten: options.flatten,
+      mergeExisting: options.mergeExisting,
+      includePrimitives: options.includePrimitives,
+      expandArrays: options.expandArrays,
     })
 
     const entryCount = Object.keys(mapping).length
@@ -113,6 +121,10 @@ program
     (val: string, prev: string[]) => [...prev, val],
     [] as string[],
   )
+  .option('--flatten', 'Dot-path keys (data.id) instead of nested objects')
+  .option('--merge-existing', 'Preserve translated values already in the output file')
+  .option('--include-primitives', 'Emit _value key for boolean/string/number-only exports')
+  .option('--expand-arrays', 'Expand ItemDTO[] into item field keys')
   .action(async (inputArg: string | undefined, options) => {
     if (inputArg) {
       await runSingleFile(inputArg, options)

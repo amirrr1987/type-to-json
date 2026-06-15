@@ -102,6 +102,8 @@ Unions, arrays, primitives, and unresolved generics stay flat (`"data": "data"`)
 import { defineConfig } from 'type-to-json'
 
 export default defineConfig({
+  extendsTsConfig: './tsconfig.app.json',
+  mergeExisting: true,
   entries: [
     {
       input: 'src/interfaces/auth.interface.ts',
